@@ -32,6 +32,8 @@ node_modules/
 **/npm-debug.log*
 **/yarn-error.log*
 
-# Specific project files (if any)
-lesson-2/specific-file.txt
-lesson-3/another-specific-file.txt
+# Ignore Lesson folders in the project branch
+Lesson\ 1/
+Lesson\ 2/
+Lesson\ 3/
+Lesson\ 4/
