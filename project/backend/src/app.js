@@ -21,4 +21,10 @@ app.use(express.urlencoded({
 app.use(express.static("public")); // static file configuration
 app.use(cookieParser()); // client er browser cookie te read write korte parbe server
 
+// routes import
+import userRouter from './routes/user.routes.js';
+
+// routes declaration
+app.use("/api/v1/users", userRouter);
+
 export {app};
