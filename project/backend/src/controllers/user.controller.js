@@ -16,6 +16,9 @@ const registerUser = asyncHandler( async (req,res) => {
     // if(fullName === "" || fullName === undefined){
     //     throw ApiError(400, " fullname is required")
     // }
+
+    // console.log("Request Body: ", req.body);
+
     if(
         [fullName,email,username,password].some((field)=> field?.trim()==="" || field === undefined)
     ){
@@ -23,7 +26,7 @@ const registerUser = asyncHandler( async (req,res) => {
     }
 
     // check if user already exists: username, email
-    const existedUser = User.findOne({
+    const existedUser = await User.findOne({
         $or: [{ username },{ email }]
     });
 
@@ -33,14 +36,21 @@ const registerUser = asyncHandler( async (req,res) => {
 
     // check for images, check for avtar
     const avatarLocalPath = req.files?.avatar[0]?.path;
-    const coverImageLocalPath = req.files?.coverImage[0]?.path;
+    // const coverImageLocalPath = req.files?.coverImage[0]?.path;
+    let coverImageLocalPath;
+    if(req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length >0){
+        coverImageLocalPath = req.files.coverImage[0].path;
+    }
 
+    // console.log("Request files: ",req.files);
     if(!avatarLocalPath){
         throw new ApiError(400, "Avatar file is required");
     }
     // upload them to cloudinary, avatar
     const avatar = await uploadOnCloudinary(avatarLocalPath);
     const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+
+    // console.log("Avatar: ",avatar);
 
     if(!avatar){
         throw new ApiError(400, "Avatar file not uploaded");
@@ -56,6 +66,7 @@ const registerUser = asyncHandler( async (req,res) => {
         username: username.toLowerCase(),
     });
 
+    // console.log("User: ",user);
     // remove password and refresh token field from response
     const createdUser = await User.findById(user._id).select(
         "-password -refreshToken"
