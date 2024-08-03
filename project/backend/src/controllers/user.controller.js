@@ -4,6 +4,21 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 
+const generateAccessAndRefreshTokens = async(userId)=>{
+    try{
+        const user = await User.findById(userId);
+        const accessToken = user.generateAcessToken(); // user k die dei db te thake na
+        const refreshToken = user.generateRefreshToken(); // user kaw dei db teo save rakhi
+
+        user.refreshToken = refreshToken;
+        await user.save({validateBeforeSave: false}); // khali refresh token save hobe baki sob bad
+        return {accessToken,refreshToken};
+
+    }catch(error){
+        throw new ApiError(500,"Something went wrong while genetaing refresh and access token");
+    }
+}
+
 const registerUser = asyncHandler( async (req,res) => {
     // get user details from frontend - done
     const {
@@ -85,4 +100,84 @@ const registerUser = asyncHandler( async (req,res) => {
     
 });
 
-export {registerUser};
+const loginUser = asyncHandler(async(req,res) => {
+    // req body -> data
+    const {email, username, password} = req.body; 
+    // username / email ase kina
+    if (!username && !email) {
+        throw new ApiError(400, "Either username or email is required");
+    }
+    // find user exists on the database
+
+    const user = await User.findOne({
+        $or: [{username},{email}]
+    });
+
+    if(!user){
+        throw new ApiError(404,"User does not exists");
+    }
+
+    // check the password are same or not
+    // j method use korbo mongoose er oikhane  model use korbo na User instance use korbo (user)
+    const isPasswordValid = await user.isPasswordCorrect(password);
+    if(!isPasswordValid){
+        throw new ApiError(401,"Invalid user credentials");
+    }
+    // access and refresh token to user
+    const {accessToken,refreshToken} = await generateAccessAndRefreshTokens(user._id);
+    // send cookies (secure cookies) and response
+
+    const loggedInUser = await User.findById(user._id).select(
+        "-password -refreshToken"
+    );
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }; // cannot be modifiable from the client only server can modify by this two options
+
+    return res.
+        status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options)
+        .json(
+            new ApiResponse(
+                200,
+                {
+                    user:loggedInUser, accessToken,
+                    refreshToken
+                },
+                "User logged in Successfully!!!"
+            )
+        );
+
+});
+
+const logoutUser = asyncHandler(async(req,res)=> {
+    // delete access and refresh token from browser
+    req.user._id;
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                refreshToken: undefined
+            }
+        },
+        {
+            new:true
+        }
+    );
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    };
+
+    return res.status(200)
+        .clearCookie("accessToken",options)
+        .clearCookie("refreshToken",options)
+        .json(new ApiResponse(200, {},"User logged out"));
+    // remove refresh token from user database
+});
+
+export {registerUser, loginUser, logoutUser};
